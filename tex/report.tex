@@ -1,0 +1,152 @@
+\documentclass{article}
+\usepackage{graphicx}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{pgfplots}
+\usepackage{pgfplotstable} 
+\usepackage{titlesec}
+\usepackage{lipsum}
+\usepackage{authblk}
+\usepackage{algorithm}
+\usepackage{amsmath}
+\usepackage[noend]{algpseudocode}
+\usepackage {tikz}
+\usetikzlibrary {positioning}
+
+\titleformat{\chapter}[display]{\normalfont\bfseries}{}{0pt}{\Large}
+
+\begin{document}
+
+\title{Aprendizado de Máquina: Trabalho Prático 2 (Boosting)}
+\author{João Mateus de Freitas Veneroso}
+\affil{Departamento de Ciência da Computação da Universidade Federal de Minas Gerais}
+
+\maketitle
+
+\section{Introdução}
+
+Este relatório descreve a implementação do trabalho prático 2 da disciplina Aprendizado de Máquina. 
+O trabalho consistiu em implementar um algoritmo de Boosting e treiná-lo no \textit{dataset}
+Tic-Tac-Toe, que consiste em todas as combinações de jogadas possíveis no Jogo-da-Velha. A
+avaliação da eficácia do modelo foi feita por meio da análise do erro simples, utilizando a
+metodologia de \textit{K-Fold Cross-Validation} com 5 partições.
+
+\section{Modelo}
+
+Os algoritmos de \textit{Boosting} consistem em um agrupamento de múltiplos \textit{weak learners},
+cujo desempenho individual é ruim, para formar um \textit{strong learner}, cujo desempenho é muito melhor. 
+Os \textit{weak learners} são modelos de aprendizado com uma taxa alta de erro (próxima de 50\% no 
+caso de uma classificação binária) e uma baixa variância. A combinação de \textit{weak learners} 
+com taxas de erro independentes produz um modelo mais robusto, que, no entanto, preserva a propriedade 
+de baixa variância, prevenindo o fenômeno de \textit{Overfitting}.
+
+O algoritmo de \textit{Boosting} implementado neste trabalho foi o \textit{AdaBoost}. Os \textit{weak learners} 
+utilizados foram os \textit{Decision Stumps}, que consistem em árvores de decisão com apenas 1 nível.
+
+O \textit{Ada Boost} consiste em um processo iterativo que atribui um peso $ \alpha_i $ para cada 
+\textit{weak learner} e classifica o dado com base em uma função de classificação binária $ H(x) $,
+cujo valor (-1 ou 1), representa a classe correspondente à entrada $ x $. A definiÇão de $ H(x) $ é:
+
+\[
+H(x) = sign(\alpha_1h_1(x) + \alpha_2h_2(x) + ... + \alpha_nh_n(x))
+\]
+
+O processo de treinamento do nosso algoritmo consiste em ajustar os valores $ \alpha_t $ para 
+diminuir o erro empírico de $ H(x) $. À medida que cresce o número $ n $ de classificadores fracos,
+o erro empírico tende a diminuir, convergindo para zero no limite da capacidade do modelo. À
+cada iteração $ t $, selecionamos o classificador fraco com o menor erro empírico e 
+calculamos o seu peso $ \alpha_t $ por meio da seguinte expressão:
+
+\[
+\alpha_t = \frac{1}{2} ln\left(\frac{1 - \epsilon_t}{\epsilon_t}\right)
+\]
+
+onde $ \epsilon_t $ é o erro empírico do classificador selecionado. No entanto, o erro empírico não
+consiste apenas na classificação e avaliação simples do \textit{dataset} $ M $. Cada caso de treino 
+$ x_i $ contribui com um peso $ w_i $ ao erro empírico $ \epsilon_t $, de forma que:
+
+\[
+\epsilon_t = \sum_{i \in M} w_{i,t} E(x_i)
+\]
+
+onde $ E(x_i) $ é o erro no caso de treino $ i $. O cálculo de $ w_{i,t} $ se dá pela expressão:
+
+\[
+w_{i,t+1} = \frac{w_{i,t}}{z} e^{-\alpha_t h_t(x) y(x)}
+\]
+
+Finalmente, o processo pode ser repetido $ n $ vezes, adicionando um novo classificador a cada iteração
+para que, assintoticamente, o erro empírico tenda à zero. Contudo, apesar do erro empírico tender à
+zero, o erro ponderado individual do classificador adicionado tende a crescer a cada iteração. Pois,
+à medida que prosseguimos com o treinamento, o peso dos casos mais difíceis tendem a aumentar
+e os padrões começam a se tornar cada vez mais complicados de discernir, de forma que, no limite,
+os novos classificadores começam a errar 50\% das vezes.
+
+\subsection{Classificadores Fracos}
+
+Os classificadores fracos são calculados por meio do algoritmo de construção de árvores 
+de decisão CART. O CART escolhe os cortes por meio da minimização da impureza das
+duas folhas adicionadas à árvore, que é calculada pelo índice de Gini:
+
+Colocar aqui fórmula do índice de Gini.
+
+Descrição do CART.
+
+\subsection{Cross-Validation}
+
+O \textit{dataset} utilizado nos experimentos possui 958 exemplos de configurações de tabuleiros
+do Jogo-da-Velha e a informação se o jogador "X" ganhou ou perdeu o jogo. Para avaliar a eficácia 
+dos modelos utilizamos a metodologia de \textit{K-Fold Cross-Validation} com 5 partições. Primeiramente,
+os dados foram embaralhados de forma aleatória e divididos em cinco partições com: 232, 232, 
+232, 231 e 231 exemplos. Para cada número $ m $ de iterações do \textit{Ada Boost}, o modelo foi
+treinado com 4 partições e o erro de teste foi calculado com a partição excluída. O processo
+foi repetido para as 5 combinações possíveis, excluindo cada uma das partições do conjunto de treinamento, e 
+o erro de treino para aquele número de iterações $ m $ foi calculado por meio da média simples 
+dos valores obtidos em cada uma das combinações.
+
+\subsection{Pseudo-código}
+
+\begin{algorithm}
+\caption{MaximizeBenefit}
+\begin{algorithmic}[1]
+\Procedure{MaximizeBenefit}{G(V,A)}
+
+\State $ b^* \gets -1 $
+\State $ G_p^* \gets \emptyset $
+\item \ForAll{\textit{$ G_p = (V, A_p) : A_p \subseteq G.A $}}
+
+\If {\textit{ConstraintsAreValid($G_p$)}}
+  \State $ \textit{b} \gets \sum_{(v_i, v_j) \in A_p} B(v_i, v_j) $
+  \If {$ b > b^* $}
+    \State $ b^* \gets b $
+    \State $ G_p^* \gets G_p $
+  \EndIf
+\EndIf
+\EndFor
+\EndProcedure
+\end{algorithmic}
+\label{alg:alg_1}
+\end{algorithm}
+
+\section{Experimentos}
+
+Inserir figura com o erro empírico e erro de teste na prática para cada iteração.
+
+% \begin{figure}
+%   \center
+%   \includegraphics[width=128px]{graph.png}
+%   \caption{Exemplo do problema de compartilhamento de viagens modelado em forma de grafo}
+%   \label{fig:graph}
+% \end{figure}
+
+Inserir figuras indicando o resultado com com modelos mais complexos.
+
+\section{Conclusão}
+
+Este relatório descreveu a implementação do trabalho prático 2 da disciplina Projeto e Análise de Algoritmos. Entre as três abordagens
+propostas, a abordagem gulosa apresentou claramente o melhor desempenho chegando a uma aproximação média de 94.27\% da resposta ótima
+em um tempo muitas ordens de magnitude menor do que as abordagens exatas. A programação dinâmica mostrou um ganho muito grande de desempenho 
+em relação ao algoritmo de força bruta, no entanto, a abordagem gasta uma quantidade muito maior de memória.
+
+\end{document}
+\grid
